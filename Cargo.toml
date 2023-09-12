@@ -126,6 +126,8 @@ hashbrown = { version = "0.14.0", features = ["serde", "inline-more", "ahash"] }
 hex = "^0.4.3"
 hyper = { version = "0.14.27", features = ["full"] }
 hyper-tls = "0.5.0"
+hmac = "0.12.1"
+pbkdf2 = "0.12.1"
 idlset = "^0.2.4"
 enum-iterator = "1.4.0"
 js-sys = "^0.3.63"
@@ -139,6 +141,7 @@ libnss = "^0.4.0"
 libsqlite3-sys = "^0.25.0"
 lru = "^0.8.0"
 mathru = "^0.13.0"
+md4 = "0.10.2"
 notify-debouncer-full = { version = "0.1" }
 num_enum = "^0.5.11"
 oauth2_ext = { version = "^4.1.0", package = "oauth2", default-features = false }
@@ -151,6 +154,7 @@ qrcode = "^0.12.0"
 quote = "1"
 rand = "^0.8.5"
 regex = "1.9.5"
+rcgen = { version = "0.11.1", features = ["zeroize", "x509-parser"]}
 reqwest = { version = "0.11.20", default-features = false, features = [
     "cookies",
     "json",
@@ -160,9 +164,12 @@ reqwest = { version = "0.11.20", default-features = false, features = [
 ] }
 rpassword = "^7.2.0"
 rusqlite = "^0.28.0"
+rustls-pemfile = "1.0.3"
 
 scim_proto = "^0.2.1"
 sd-notify = "^0.4.1"
+sha2 = "0.10.7"
+sha1 = "0.10.5"
 selinux = "^0.4.2"
 serde = "^1.0.188"
 serde_cbor = { version = "0.12.0-dev", package = "serde_cbor_2" }
@@ -222,3 +229,7 @@ yew-router = "^0.17.0"
 zxcvbn = "^2.2.2"
 
 nonempty = "0.8.1"
+
+[workspace.dependencies.rustls]
+version = "0.21.2"
+features = [ "read_buf", "secret_extraction", "quic" ]

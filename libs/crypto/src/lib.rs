@@ -13,20 +13,21 @@
 use argon2::{Algorithm, Argon2, Params, PasswordHash, Version};
 use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{error, info, trace, warn};
 
 use base64::engine::general_purpose;
 use base64urlsafedata::Base64UrlSafeData;
+use kanidm_proto::v1::OperationError;
+use pbkdf2::pbkdf2_hmac;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256, Sha512};
 use std::fmt;
 use std::time::{Duration, Instant};
-
-use kanidm_proto::v1::OperationError;
-use openssl::hash::{self, MessageDigest};
-use openssl::nid::Nid;
-use openssl::pkcs5::pbkdf2_hmac;
-use openssl::sha::Sha512;
+// use openssl::hash::{self, MessageDigest};
+// use openssl::nid::Nid;
+// use openssl::pkcs5::pbkdf2_hmac;
+// use openssl::sha::Sha512;
 
 #[cfg(feature = "tpm")]
 pub use tss_esapi::{handles::ObjectHandle as TpmHandle, Context as TpmContext, Error as TpmError};
@@ -547,7 +548,7 @@ impl TryFrom<&str> for Password {
                 }
             };
 
-            let h = base64::engine::general_purpose::STANDARD_NO_PAD
+            let h = general_purpose::STANDARD_NO_PAD
                 .decode(nt_md4)
                 .map_err(|_| ())?;
 
@@ -736,14 +737,12 @@ impl Password {
         let mut key: Vec<u8> = (0..PBKDF2_KEY_LEN).map(|_| 0).collect();
 
         let start = Instant::now();
-        pbkdf2_hmac(
+        pbkdf2_hmac::<Sha256>(
             input.as_slice(),
             salt.as_slice(),
-            pbkdf2_cost,
-            MessageDigest::sha256(),
-            key.as_mut_slice(),
-        )
-        .ok()?;
+            pbkdf2_cost as u32,
+            &mut key,
+        );
         let end = Instant::now();
 
         end.checked_duration_since(start)
@@ -774,11 +773,10 @@ impl Password {
         // This is 512 bits of output
         let mut key: Vec<u8> = (0..PBKDF2_KEY_LEN).map(|_| 0).collect();
 
-        pbkdf2_hmac(
+        pbkdf2_hmac::<Sha256>(
             cleartext.as_bytes(),
             salt.as_slice(),
-            pbkdf2_cost,
-            MessageDigest::sha256(),
+            pbkdf2_cost as u32,
             key.as_mut_slice(),
         )
         .map(|()| {
@@ -955,11 +953,10 @@ impl Password {
                 let key_len = key.len();
                 debug_assert!(key_len >= PBKDF2_MIN_NIST_KEY_LEN);
                 let mut chal_key: Vec<u8> = (0..key_len).map(|_| 0).collect();
-                pbkdf2_hmac(
+                pbkdf2_hmac::<Sha256>(
                     cleartext.as_bytes(),
                     salt.as_slice(),
-                    *cost,
-                    MessageDigest::sha256(),
+                    *cost as u32,
                     chal_key.as_mut_slice(),
                 )
                 .map_err(|_| CryptoError::OpenSSL)
@@ -972,11 +969,10 @@ impl Password {
                 let key_len = key.len();
                 debug_assert!(key_len >= PBKDF2_SHA1_MIN_KEY_LEN);
                 let mut chal_key: Vec<u8> = (0..key_len).map(|_| 0).collect();
-                pbkdf2_hmac(
+                pbkdf2_hmac::<sha1::Sha1>(
                     cleartext.as_bytes(),
                     salt.as_slice(),
-                    *cost,
-                    MessageDigest::sha1(),
+                    *cost as u32,
                     chal_key.as_mut_slice(),
                 )
                 .map_err(|_| CryptoError::OpenSSL)
@@ -989,11 +985,10 @@ impl Password {
                 let key_len = key.len();
                 debug_assert!(key_len >= PBKDF2_MIN_NIST_KEY_LEN);
                 let mut chal_key: Vec<u8> = (0..key_len).map(|_| 0).collect();
-                pbkdf2_hmac(
+                pbkdf2_hmac::<Sha512>(
                     cleartext.as_bytes(),
                     salt.as_slice(),
-                    *cost,
-                    MessageDigest::sha512(),
+                    *cost as u32,
                     chal_key.as_mut_slice(),
                 )
                 .map_err(|_| CryptoError::OpenSSL)
@@ -1017,20 +1012,23 @@ impl Password {
                     .flat_map(|i| i.into_iter())
                     .collect();
 
-                let dgst = MessageDigest::from_nid(Nid::MD4).ok_or_else(|| {
-                    error!("Unable to access MD4 - fips mode may be enabled, or you may need to activate the legacy provider.");
-                    error!("For more details, see https://wiki.openssl.org/index.php/OpenSSL_3.0#Providers");
-                    CryptoError::Md4Disabled
-                })?;
-
-                hash::hash(dgst, &clear_utf16le)
-                    .map_err(|e| {
-                        debug!(?e);
-                        error!("Unable to digest MD4 - fips mode may be enabled, or you may need to activate the legacy provider.");
-                        error!("For more details, see https://wiki.openssl.org/index.php/OpenSSL_3.0#Providers");
-                        CryptoError::Md4Disabled
-                    })
-                    .map(|chal_key| chal_key.as_ref() == key)
+                // let dgst = MessageDigest::from_nid(Nid::MD4).ok_or_else(|| {
+                //     error!("Unable to access MD4 - fips mode may be enabled, or you may need to activate the legacy provider.");
+                //     error!("For more details, see https://wiki.openssl.org/index.php/OpenSSL_3.0#Providers");
+                //     CryptoError::Md4Disabled
+                // })?;
+                let mut dgst = md4::Md4::default();
+                dgst.update(&clear_utf16le);
+                let cha1_key = dgst.finalize();
+                Ok(cha1_key.into() == key)
+                // hash::hash(dgst, &clear_utf16le)
+                //     .map_err(|e| {
+                //         debug!(?e);
+                //         error!("Unable to digest MD4 - fips mode may be enabled, or you may need to activate the legacy provider.");
+                //         error!("For more details, see https://wiki.openssl.org/index.php/OpenSSL_3.0#Providers");
+                //         CryptoError::Md4Disabled
+                //     })
+                //     .map(|chal_key| chal_key.as_ref() == key)
             }
         }
     }

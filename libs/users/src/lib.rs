@@ -1,3 +1,4 @@
+#![cfg(target_os = "linux")]
 use libc::passwd as c_passwd;
 use libc::{gid_t, uid_t};
 use std::ffi::{CStr, OsStr, OsString};

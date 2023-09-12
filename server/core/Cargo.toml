@@ -17,6 +17,11 @@ async-trait = { workspace = true }
 axum = { workspace=true }
 axum-auth = "0.4.0"
 axum-csp = { workspace = true }
+anyhow = "1.0.71"
+
+x509-cert = "0.2.3"
+x509-certificate = "0.20.0"
+asn1 = "0.15.4"
 axum-macros = "0.3.8"
 axum-server = { version = "0.5.1", features = ["tls-openssl"] }
 bytes = { workspace = true }
@@ -32,6 +37,9 @@ kanidmd_lib = { workspace = true }
 ldap3_proto = { workspace = true }
 libc = { workspace = true }
 openssl = { workspace = true }
+rustls = { workspace = true }
+rcgen = { workspace = true }
+rustls-pemfile = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

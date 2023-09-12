@@ -16,6 +16,8 @@ use openssl::{asn1, bn, hash, pkey};
 
 use crate::config::Configuration;
 
+use anyhow::Context;
+use rcgen::{CertificateParams, DnType, DnValue, IsCa};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -42,9 +44,22 @@ fn get_group() -> Result<EcGroup, ErrorStack> {
     EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
 }
 
+fn rustls_group() -> &'static rcgen::SignatureAlgorithm {
+    &rcgen::PKCS_ECDSA_P256_SHA256
+}
+
+fn rustls_gen() -> anyhow::Result<rcgen::KeyPair> {
+    rcgen::KeyPair::generate(rustls_group()).context("Cannot generate CA key")
+}
+
 pub(crate) struct CaHandle {
     key: pkey::PKey<pkey::Private>,
     cert: X509,
+}
+
+pub(crate) struct RustlsCaHandle {
+    key: rustls::PrivateKey,
+    cert: rustls::Certificate,
 }
 
 pub(crate) fn write_ca(
@@ -74,6 +89,29 @@ pub(crate) fn write_ca(
         .map_err(|e| {
             error!(err = ?e, "Failed to create {:?}", cert_path);
         })
+}
+
+pub(crate) fn build_name() -> rcgen::DistinguishedName {
+    let mut res = rcgen::DistinguishedName::new();
+    res.push(DnType::CountryName, "AU");
+    res.push(DnType::StateOrProvinceName, "QLD");
+    res.push(DnType::OrganizationName, "Kanidm");
+    res.push(DnType::CommonName, "Kanidm Generated CA");
+    res.push(
+        DnType::OrganizationalUnitName,
+        "Development and Evaluation - NOT FOR PRODUCTION",
+    );
+    res
+}
+
+pub(crate) fn build_rustls_ca() -> anyhow::Result<RustlsCaHandle> {
+    let name = build_name();
+    let key = rustls_gen()?;
+    let mut params = CertificateParams::default();
+    params.alg = rustls_group();
+    params.is_ca = IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    params.distinguished_name = name;
+    params.key_pair = Some(key);
 }
 
 pub(crate) fn build_ca() -> Result<CaHandle, ErrorStack> {
