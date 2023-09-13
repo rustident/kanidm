@@ -37,8 +37,8 @@ authors = [
 rust-version = "1.66"
 edition = "2021"
 license = "MPL-2.0"
-homepage = "https://github.com/kanidm/kanidm/"
-repository = "https://github.com/kanidm/kanidm/"
+homepage = "https://github.com/rustident/kanidm/"
+repository = "https://github.com/rustident/kanidm/"
 
 
 [patch.crates-io]
@@ -52,17 +52,17 @@ repository = "https://github.com/kanidm/kanidm/"
 
 # ldap3_client = { path = "../ldap3/client" }
 # ldap3_proto = { path = "../ldap3/proto" }
-# ldap3_client = { git = "https://github.com/kanidm/ldap3.git" }
-# ldap3_proto = { git = "https://github.com/kanidm/ldap3.git" }
+# ldap3_client = { git = "https://github.com/rustident/ldap3.git" }
+# ldap3_proto = { git = "https://github.com/rustident/ldap3.git" }
 
 # scim_proto = { path = "../scim/proto" }
-# scim_proto = { git = "https://github.com/kanidm/scim.git"  }
+# scim_proto = { git = "https://github.com/rustident/scim.git"  }
 
-base64urlsafedata = { git = "https://github.com/kanidm/webauthn-rs.git", rev = "429662e34d6e760af8cff68760567c6b56dbb2d5" }
-webauthn-authenticator-rs = { git = "https://github.com/kanidm/webauthn-rs.git", rev = "429662e34d6e760af8cff68760567c6b56dbb2d5" }
-webauthn-rs = { git = "https://github.com/kanidm/webauthn-rs.git", rev = "429662e34d6e760af8cff68760567c6b56dbb2d5" }
-webauthn-rs-core = { git = "https://github.com/kanidm/webauthn-rs.git", rev = "429662e34d6e760af8cff68760567c6b56dbb2d5" }
-webauthn-rs-proto = { git = "https://github.com/kanidm/webauthn-rs.git", rev = "429662e34d6e760af8cff68760567c6b56dbb2d5" }
+base64urlsafedata = { git = "https://github.com/rustident/webauthn-rs.git", branch = "master" }
+webauthn-authenticator-rs = { git = "https://github.com/rustident/webauthn-rs.git", branch = "master" }
+webauthn-rs = { git = "https://github.com/rustident/webauthn-rs.git", branch = "master" }
+webauthn-rs-core = { git = "https://github.com/rustident/webauthn-rs.git", branch = "master" }
+webauthn-rs-proto = { git = "https://github.com/rustident/webauthn-rs.git", branch = "master" }
 
 # base64urlsafedata = { path = "../webauthn-rs/base64urlsafedata" }
 # webauthn-authenticator-rs = { path = "../webauthn-rs/webauthn-authenticator-rs" }
@@ -188,6 +188,7 @@ tikv-jemallocator = "0.5"
 
 tokio = "^1.32.0"
 tokio-openssl = "^0.6.3"
+tokio-rustls = "0.24.1"
 tokio-util = "^0.7.8"
 
 toml = "^0.5.11"

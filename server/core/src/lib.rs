@@ -599,7 +599,7 @@ pub fn cert_generate_core(config: &Configuration) {
 
     let ca_handle = if !ca_cert.exists() || !ca_key.exists() {
         // Generate the CA again.
-        let ca_handle = match crypto::build_ca() {
+        let ca_handle = match crypto::build_rustls_ca() {
             Ok(ca_handle) => ca_handle,
             Err(e) => {
                 error!(err = ?e, "Failed to build CA");

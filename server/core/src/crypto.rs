@@ -13,28 +13,48 @@ use openssl::x509::{
     X509NameBuilder, X509ReqBuilder, X509,
 };
 use openssl::{asn1, bn, hash, pkey};
+use time::{OffsetDateTime, Duration};
 
 use crate::config::Configuration;
 
-use anyhow::Context;
-use rcgen::{CertificateParams, DnType, DnValue, IsCa};
+use anyhow::{bail, Context};
+use rcgen::{Certificate, CertificateParams, DnType, IsCa, SerialNumber};
+use rustls::ServerConfig;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{BufReader, Read, Write};
+use std::ops::Add;
 use std::path::Path;
+use std::sync::Arc;
 
 const CA_VALID_DAYS: u32 = 30;
 const CERT_VALID_DAYS: u32 = 5;
 
+
+pub fn read_key<P: Into<Path>>(p: P) -> anyhow::Result<rustls::PrivateKey> {
+    let mut f = BufReader::new(File::open(p)?);
+    let mut keys = rustls_pemfile::pkcs8_private_keys(&mut f)?;
+    match keys.len() {
+        0 => bail!("No PKCS8-encoded private key found in {p}"),
+        1 => Ok(rustls::PrivateKey(keys.remove(0))),
+        _ => bail!("More than one PKCS8-encoded private key found in {p}, those are the keys {keys:?}")
+    }
+}
+
 /// From the server configuration, generate an OpenSSL acceptor that we can use
 /// to build our sockets for https/ldaps.
-pub fn setup_tls(config: &Configuration) -> Result<Option<SslAcceptorBuilder>, ErrorStack> {
+pub fn setup_tls(config: &Configuration) -> Result<Option<ServerConfig>, ErrorStack> {
     match &config.tls_config {
         Some(tls_config) => {
-            let mut ssl_builder = SslAcceptor::mozilla_modern(SslMethod::tls())?;
-            ssl_builder.set_certificate_chain_file(&tls_config.chain)?;
-            ssl_builder.set_private_key_file(&tls_config.key, SslFiletype::PEM)?;
-            ssl_builder.check_private_key()?;
-            Ok(Some(ssl_builder))
+            let chain_f = File::open(&tls_config.chain)?;
+            let chain_pem: Vec<rustls::Certificate> = rustls_pemfile::certs(&mut BufReader::new(chain_f)).map(|rawcert| rawcert.into_iter().map(rustls::Certificate).collect())?;
+            let k = read_key(&tls_config.key)?;
+            let mut b = ServerConfig::builder().with_safe_defaults().with_no_client_auth().with_single_cert(chain_pem, k)?;
+            Ok(Some(b))
+            // let mut ssl_builder = SslAcceptor::mozilla_modern(SslMethod::tls())?;
+            // ssl_builder.set_certificate_chain_file(&tls_config.chain)?;
+            // ssl_builder.set_private_key_file(&tls_config.key, SslFiletype::PEM)?;
+            // ssl_builder.check_private_key()?;
+            // Ok(Some(ssl_builder))
         }
         None => Ok(None),
     }
@@ -58,14 +78,14 @@ pub(crate) struct CaHandle {
 }
 
 pub(crate) struct RustlsCaHandle {
-    key: rustls::PrivateKey,
-    cert: rustls::Certificate,
+    key: rcgen::KeyPair,
+    cert: Certificate,
 }
 
 pub(crate) fn write_ca(
     key_ar: impl AsRef<Path>,
     cert_ar: impl AsRef<Path>,
-    handle: &CaHandle,
+    handle: &RustlsCaHandle,
 ) -> Result<(), ()> {
     let key_path: &Path = key_ar.as_ref();
     let cert_path: &Path = cert_ar.as_ref();
@@ -74,7 +94,7 @@ pub(crate) fn write_ca(
         error!(err = ?e, "Failed to convert key to PEM");
     })?;
 
-    let cert_pem = handle.cert.to_pem().map_err(|e| {
+    let cert_pem = handle.cert.map_err(|e| {
         error!(err = ?e, "Failed to convert cert to PEM");
     })?;
 
@@ -111,7 +131,18 @@ pub(crate) fn build_rustls_ca() -> anyhow::Result<RustlsCaHandle> {
     params.alg = rustls_group();
     params.is_ca = IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
     params.distinguished_name = name;
-    params.key_pair = Some(key);
+    params.key_pair = Some(key.clone());
+    params.serial_number = Some(SerialNumber::from_slice(&[1]));
+    let now = OffsetDateTime::now_local()?;
+    let not_after = now.add(Duration::days(CA_VALID_DAYS as i64));
+    params.not_before = now;
+    params.not_after = not_after;
+    let cert = Certificate::from_params(params)?;
+    Ok(RustlsCaHandle {
+        key,
+        cert
+    })
+
 }
 
 pub(crate) fn build_ca() -> Result<CaHandle, ErrorStack> {

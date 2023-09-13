@@ -13,6 +13,7 @@
 use argon2::{Algorithm, Argon2, Params, PasswordHash, Version};
 use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
+use sha2::digest::Output;
 use tracing::{error, info, trace, warn};
 
 use base64::engine::general_purpose;
@@ -778,13 +779,11 @@ impl Password {
             salt.as_slice(),
             pbkdf2_cost as u32,
             key.as_mut_slice(),
-        )
-        .map(|()| {
+        );
             // Turn key to a vec.
-            Kdf::PBKDF2(pbkdf2_cost, salt, key)
-        })
-        .map_err(|_| CryptoError::OpenSSL)
-        .map(|material| Password { material })
+        let material = Kdf::PBKDF2(pbkdf2_cost, salt, key);
+        Ok(Password { material })
+
     }
 
     pub fn new_argon2id(policy: &CryptoPolicy, cleartext: &str) -> Result<Self, CryptoError> {
@@ -958,12 +957,8 @@ impl Password {
                     salt.as_slice(),
                     *cost as u32,
                     chal_key.as_mut_slice(),
-                )
-                .map_err(|_| CryptoError::OpenSSL)
-                .map(|()| {
-                    // Actually compare the outputs.
-                    &chal_key == key
-                })
+                );
+                Ok(&chal_key == key)
             }
             (Kdf::PBKDF2_SHA1(cost, salt, key), _) => {
                 let key_len = key.len();
@@ -974,13 +969,9 @@ impl Password {
                     salt.as_slice(),
                     *cost as u32,
                     chal_key.as_mut_slice(),
-                )
-                .map_err(|_| CryptoError::OpenSSL)
-                .map(|()| {
-                    // Actually compare the outputs.
-                    &chal_key == key
-                })
-            }
+                );
+                Ok(&chal_key == key)
+                 }
             (Kdf::PBKDF2_SHA512(cost, salt, key), _) => {
                 let key_len = key.len();
                 debug_assert!(key_len >= PBKDF2_MIN_NIST_KEY_LEN);
@@ -990,18 +981,14 @@ impl Password {
                     salt.as_slice(),
                     *cost as u32,
                     chal_key.as_mut_slice(),
-                )
-                .map_err(|_| CryptoError::OpenSSL)
-                .map(|()| {
-                    // Actually compare the outputs.
-                    &chal_key == key
-                })
+                );
+                Ok(&chal_key == key)
             }
             (Kdf::SSHA512(salt, key), _) => {
                 let mut hasher = Sha512::new();
                 hasher.update(cleartext.as_bytes());
                 hasher.update(salt);
-                let r = hasher.finish();
+                let r = hasher.finalize();
                 Ok(key == &(r.to_vec()))
             }
             (Kdf::NT_MD4(key), _) => {
@@ -1019,8 +1006,8 @@ impl Password {
                 // })?;
                 let mut dgst = md4::Md4::default();
                 dgst.update(&clear_utf16le);
-                let cha1_key = dgst.finalize();
-                Ok(cha1_key.into() == key)
+                let cha1_key: Output<md4::Md4> = dgst.finalize();
+                Ok(cha1_key.as_slice() == key)
                 // hash::hash(dgst, &clear_utf16le)
                 //     .map_err(|e| {
                 //         debug!(?e);

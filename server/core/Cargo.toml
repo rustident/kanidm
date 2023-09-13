@@ -23,7 +23,7 @@ x509-cert = "0.2.3"
 x509-certificate = "0.20.0"
 asn1 = "0.15.4"
 axum-macros = "0.3.8"
-axum-server = { version = "0.5.1", features = ["tls-openssl"] }
+axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 bytes = { workspace = true }
 chrono = { workspace = true }
 compact_jwt = { workspace = true }
@@ -48,6 +48,7 @@ sketching = { workspace = true }
 time = { workspace = true, features = ["serde", "std","local-offset"] }
 tokio = { workspace = true, features = ["net", "sync", "io-util", "macros"] }
 tokio-openssl = { workspace = true }
+tokio-rustls = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 toml = {workspace = true}
 tower = { version = "0.4.13", features = ["tokio-stream", "tracing"] }

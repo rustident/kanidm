@@ -1,6 +1,6 @@
 // include!("src/lib/audit_loglevel.rs");
 
-use std::env;
+
 
 fn main() {
     // if let Ok(v) = env::var("DEP_OPENSSL_VERSION_NUMBER") {
